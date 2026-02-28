@@ -42,7 +42,7 @@ class PFDRenderer:
         
         y_offset = 10
         for line in debug_text:
-            text_surf = self.debug_font.render(line, Colors.GREEN, None)
+            text_surf = self.debug_font.render(line, True, Colors.GREEN)
             self.screen.blit(text_surf, (10, y_offset))
             y_offset += 20
 

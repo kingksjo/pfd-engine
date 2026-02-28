@@ -42,8 +42,19 @@ All instruments (Horizon, Tapes, Compass) will inherit from `ui.base_instrument.
 ### 4. Signal Processing & Logic Layer
 To handle real-world sensor "jitter" and unit conversions:
 *   **Constants (`core/constants.py`):** Centralizes all magic numbers, colors, and aviation conversion factors (e.g., Meters to Feet).
-*   **Logic (`core/logic.py`):** Implements the **Complementary Filter** logic. This ensures that raw, noisy data from the `io` layer is smoothed before it reaches the `FlightState`.
+*   **Logic (`core/logic.py`):** Implements the **Complementary Filter** logic. This ensures that raw, noisy data from the `game_io` layer is smoothed before it reaches the `FlightState`.
+
+## Implemented Instruments
+
+### 1. Artificial Horizon (`ui/instruments/horizon.py`)
+The most complex instrument in the PFD.
+*   **Moving World Pattern:** Instead of moving a line, we transform a 2000x2000 "World Surface" (Sky/Ground).
+*   **Transformation Flow:**
+    1.  **Pitch Shift:** The world surface is offset vertically by `pitch * PIXELS_PER_DEGREE`.
+    2.  **Roll Rotation:** The offset surface is rotated by `-roll` using Pygame's `transform.rotate`.
+    3.  **Centered Blit:** A specialized algorithm ensures the rotation pivot stays centered in the PFD viewport while maintaining the pitch offset along the rotated vertical axis.
+*   **Optimization:** The **Pitch Ladder** (degree markings) is pre-rendered onto the world surface during initialization to minimize per-frame drawing calls.
 
 ## Future Extensions
-*   **Hardware Integration:** Implement `io/serial_sensor.py` using `pyserial` to read from Arduino/IMU.
-*   **New Instruments:** Create classes like `ui/instruments/horizon.py` implementing the `BaseInstrument` interface.
+*   **Hardware Integration:** Implement `game_io/serial_sensor.py` using `pyserial` to read from Arduino/IMU.
+*   **Tape Instruments:** Implement `ui/instruments/tapes.py` for Airspeed and Altitude using a vertical sliding window pattern.

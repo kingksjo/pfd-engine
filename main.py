@@ -4,6 +4,7 @@ import sys
 from core.state import FlightState
 from game_io.mock_sensor import MockSensor
 from ui.renderer import PFDRenderer
+from ui.instruments.horizon import ArtificialHorizon
 
 def sensor_loop(state: FlightState, stop_event: threading.Event):
     """
@@ -54,6 +55,11 @@ def main():
     # 3. Start Renderer (Main Thread)
     # We run the GUI on the main thread to avoid OS-level windowing issues.
     renderer = PFDRenderer(state, width=1024, height=768)
+    
+    # Add Artificial Horizon in the center
+    # Size 600x600 for a large attitude display
+    horizon = ArtificialHorizon(x=212, y=84, width=600, height=600)
+    renderer.add_instrument(horizon)
     
     try:
         renderer.run()
