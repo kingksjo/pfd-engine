@@ -55,6 +55,12 @@ The most complex instrument in the PFD.
     3.  **Centered Blit:** A specialized algorithm ensures the rotation pivot stays centered in the PFD viewport while maintaining the pitch offset along the rotated vertical axis.
 *   **Optimization:** The **Pitch Ladder** (degree markings) is pre-rendered onto the world surface during initialization to minimize per-frame drawing calls.
 
+### 2. Tape Instruments (`ui/instruments/tape.py`)
+A reusable component for vertical scales like Airspeed and Altitude.
+*   **Sliding Window Pattern:** Pre-renders a very tall surface (e.g., 10,000 pixels for altitude) containing all tick marks and labels.
+*   **Clipping Viewport:** The `TapeInstrument` surface acts as a window; the tall scale surface is blitted at a negative Y-offset calculated from the current flight value.
+*   **Fixed Readout:** A "Pointer Box" is drawn statically in the center to show the exact digital value over the moving tape.
+
 ## Future Extensions
 *   **Hardware Integration:** Implement `game_io/serial_sensor.py` using `pyserial` to read from Arduino/IMU.
 *   **Tape Instruments:** Implement `ui/instruments/tapes.py` for Airspeed and Altitude using a vertical sliding window pattern.

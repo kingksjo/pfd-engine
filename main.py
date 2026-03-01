@@ -5,6 +5,7 @@ from core.state import FlightState
 from game_io.mock_sensor import MockSensor
 from ui.renderer import PFDRenderer
 from ui.instruments.horizon import ArtificialHorizon
+from ui.instruments.tape import TapeInstrument
 
 def sensor_loop(state: FlightState, stop_event: threading.Event):
     """
@@ -56,10 +57,26 @@ def main():
     # We run the GUI on the main thread to avoid OS-level windowing issues.
     renderer = PFDRenderer(state, width=1024, height=768)
     
-    # Add Artificial Horizon in the center
-    # Size 600x600 for a large attitude display
+    # Center: Artificial Horizon
     horizon = ArtificialHorizon(x=212, y=84, width=600, height=600)
     renderer.add_instrument(horizon)
+    
+    # Left: Airspeed Tape
+    # 100px wide, same height as horizon
+    speed_tape = TapeInstrument(
+        x=110, y=84, width=100, height=600,
+        label="IAS (KTS)", pixels_per_unit=4.0, 
+        major_step=20, minor_step=10, is_altitude=False
+    )
+    renderer.add_instrument(speed_tape)
+    
+    # Right: Altitude Tape
+    alt_tape = TapeInstrument(
+        x=814, y=84, width=100, height=600,
+        label="ALT (FT)", pixels_per_unit=0.2, 
+        major_step=500, minor_step=100, is_altitude=True
+    )
+    renderer.add_instrument(alt_tape)
     
     try:
         renderer.run()
