@@ -32,7 +32,7 @@ class VerticalSpeedIndicator(BaseInstrument):
                 label = font.render(str(abs(val // 100)), True, Colors.TEXT)
                 self.surface.blit(label, (12, y - 6))
 
-    def update(self, state: FlightState) -> None:
+    def _update_logic(self, state: FlightState) -> None:
         """Draws the moving bar based on current vertical speed."""
         self._draw_scale()
         center_y = self.rect.height // 2
@@ -44,7 +44,7 @@ class VerticalSpeedIndicator(BaseInstrument):
         target_y = center_y - (vsi * self.pixels_per_fpm)
         
         # Draw the Indicator Bar
-        bar_color = Colors.GREEN if vsi >= 0 else Colors.WARNING
+        bar_color = Colors.GREEN if vsi >= 0 else Colors.DANGER
         pygame.draw.rect(
             self.surface, 
             bar_color, 

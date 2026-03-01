@@ -60,7 +60,7 @@ class CompassTape(BaseInstrument):
         pygame.draw.rect(self.surface, Colors.BLACK, (center_x - 25, self.rect.height - 25, 50, 22))
         pygame.draw.rect(self.surface, Colors.TEXT, (center_x - 25, self.rect.height - 25, 50, 22), 1)
 
-    def update(self, state: FlightState) -> None:
+    def _update_logic(self, state: FlightState) -> None:
         """Slides the compass tape based on current heading."""
         self.surface.fill(Colors.BEZEL)
         

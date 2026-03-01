@@ -95,7 +95,7 @@ class ArtificialHorizon(BaseInstrument):
         # Draw the Ball
         pygame.draw.rect(self.surface, Colors.TEXT, (ball_x - 4, bottom_y - 4, 8, 8))
 
-    def update(self, state: FlightState) -> None:
+    def _update_logic(self, state: FlightState) -> None:
         """
         Rotates and shifts the horizon based on state.
         """

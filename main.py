@@ -33,9 +33,10 @@ def sensor_loop(state: FlightState, stop_event: threading.Event):
             state.update(**data)
         
         # Sleep remainder of interval
-        elapsed = time.time() - start_time
-        sleep_time = max(0.0, interval - elapsed)
-        time.sleep(sleep_time)
+        # Using stop_event.wait() allows instant shutdown responsiveness
+            elapsed = time.time() - start_time
+            sleep_time = max(0.0, interval - elapsed)
+            stop_event.wait(sleep_time)
     
     sensor.close()
     print("[INFO] Sensor thread stopped.")

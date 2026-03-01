@@ -6,7 +6,8 @@ class Colors:
     SKY = (74, 144, 226)    # #4A90E2
     GROUND = (123, 82, 44)   # #7B522C
     TEXT = (255, 255, 255)   # #FFFFFF
-    WARNING = (231, 76, 60)  # #E74C3C
+    WARNING = (241, 196, 15) # #F1C40F (Yellow)
+    DANGER = (231, 76, 60)   # #E74C3C (Red)
     BEZEL = (28, 28, 28)     # #1C1C1C
     BLACK = (0, 0, 0)
     GREEN = (0, 255, 0)
@@ -25,3 +26,8 @@ class FlightLimits:
     V_NE = 150.0  # Velocity Never Exceed (Knots)
     V_NO = 120.0  # Structural Cruising Speed
     V_S = 45.0    # Stall Speed
+
+@dataclass(frozen=True)
+class Timing:
+    """System timing and watchdog thresholds."""
+    SENSOR_TIMEOUT = 0.5  # Seconds before data is considered invalid

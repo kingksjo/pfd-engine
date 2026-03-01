@@ -84,7 +84,7 @@ class TapeInstrument(BaseInstrument):
         text_rect = text_surf.get_rect(center=(self.rect.width // 2, center_y))
         self.surface.blit(text_surf, text_rect)
 
-    def update(self, state: FlightState) -> None:
+    def _update_logic(self, state: FlightState) -> None:
         """
         Slides the tape based on current airspeed/altitude.
         """
@@ -96,17 +96,8 @@ class TapeInstrument(BaseInstrument):
         
         # 3. Calculate blit position
         # We want current_val to be at the center_y of our instrument.
-        # The tape was drawn with 0 at the 'bottom' (tape_height - margin).
-        tape_y_center = self.tape_height - (current_val * self.pixels_per_unit) - (self.rect.height // 2)
-        
-        # Offset the tape so that tape_y_center aligns with the top of our surface
-        # wait, if we blit at (0, -tape_y_center), then tape_y_center is at the top.
-        # We want it at self.rect.height // 2.
-        blit_y = (self.rect.height // 2) - (self.tape_height - (current_val * self.pixels_per_unit) - (self.rect.height // 2))
-        
-        # Correction:
-        # The position on the tape representing 'current_val' is:
         target_pos_on_tape = self.tape_height - (current_val * self.pixels_per_unit) - (self.rect.height // 2)
+        
         # We want this target_pos to appear at y = self.rect.height // 2
         blit_y = (self.rect.height // 2) - target_pos_on_tape
         
