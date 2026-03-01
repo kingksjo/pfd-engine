@@ -75,6 +75,26 @@ class ArtificialHorizon(BaseInstrument):
         # Center 'Nose'
         pygame.draw.rect(self.surface, yellow, (center_x - 4, center_y - 4, 8, 8))
 
+    def _draw_slip_indicator(self, slip: float) -> None:
+        """Draws the slip/skid indicator (the ball) at the bottom."""
+        center_x = self.rect.width // 2
+        bottom_y = self.rect.height - 40
+        width = 80
+        
+        # Draw background scale
+        pygame.draw.line(self.surface, Colors.TEXT, (center_x - width//2, bottom_y), (center_x + width//2, bottom_y), 2)
+        # Center ticks
+        pygame.draw.line(self.surface, Colors.TEXT, (center_x - 5, bottom_y - 10), (center_x - 5, bottom_y + 10), 2)
+        pygame.draw.line(self.surface, Colors.TEXT, (center_x + 5, bottom_y - 10), (center_x + 5, bottom_y + 10), 2)
+        
+        # Calculate Ball Position (Clamped to scale)
+        # Slip is -1.0 to 1.0
+        ball_x = center_x + (slip * (width // 2))
+        ball_x = max(center_x - width//2, min(center_x + width//2, ball_x))
+        
+        # Draw the Ball
+        pygame.draw.rect(self.surface, Colors.TEXT, (ball_x - 4, bottom_y - 4, 8, 8))
+
     def update(self, state: FlightState) -> None:
         """
         Rotates and shifts the horizon based on state.
@@ -94,26 +114,18 @@ class ArtificialHorizon(BaseInstrument):
         # This is the tricky part: Pygame's rotate expands the surface.
         rot_rect = rotated_bg.get_rect()
         
-        # Center of the rotated surface needs to align with the PFD center,
-        # but offset by the pitch.
-        # We need to rotate the pitch offset vector as well!
-        # In a real PFD, the pitch scale is often locked to the horizon's rotation.
-        
-        # Simplified Pitch + Roll integration:
-        # We blit the center of the rotated_bg at (center_x, center_y + pitch_offset)
-        dest_x = (self.rect.width // 2) - (rot_rect.width // 2)
-        
         # Rotation math for the pitch offset:
         # The pitch shift happens ALONG the vertical axis of the rotated world.
         rad_roll = math.radians(state.roll)
         off_x = pitch_offset * math.sin(rad_roll)
         off_y = pitch_offset * math.cos(rad_roll)
         
+        dest_x = (self.rect.width // 2) - (rot_rect.width // 2) + off_x
         dest_y = (self.rect.height // 2) - (rot_rect.height // 2) + off_y
-        dest_x += off_x
         
         # 5. Blit the world
         self.surface.blit(rotated_bg, (dest_x, dest_y))
         
         # 6. Draw fixed overlays
         self._draw_aircraft_symbol()
+        self._draw_slip_indicator(state.slip)

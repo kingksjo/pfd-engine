@@ -61,6 +61,16 @@ A reusable component for vertical scales like Airspeed and Altitude.
 *   **Clipping Viewport:** The `TapeInstrument` surface acts as a window; the tall scale surface is blitted at a negative Y-offset calculated from the current flight value.
 *   **Fixed Readout:** A "Pointer Box" is drawn statically in the center to show the exact digital value over the moving tape.
 
-## Future Extensions
-*   **Hardware Integration:** Implement `game_io/serial_sensor.py` using `pyserial` to read from Arduino/IMU.
-*   **Tape Instruments:** Implement `ui/instruments/tapes.py` for Airspeed and Altitude using a vertical sliding window pattern.
+### 3. Compass Tape (`ui/instruments/compass.py`)
+A horizontal version of the sliding tape for Heading.
+*   **360-Degree Wrapping:** The scale is pre-rendered with an extra buffer at the end so that blitting from 359 to 0 is seamless.
+*   **Cardinal Points:** Displays 'N', 'E', 'S', 'W' in place of degree numbers for intuitive orientation.
+
+### 4. Vertical Speed Indicator (`ui/instruments/vsi.py`)
+A rate-of-change indicator for climb/descent.
+*   **Linear Scale:** Maps -2000 to +2000 FPM vertically.
+*   **Dynamic Bar:** Grows from a center zero-point (green for climb, red for descent).
+
+### 5. Slip/Skid Indicator (Integrated in Horizon)
+A small horizontal inclinometer at the bottom of the attitude indicator.
+*   **Physics:** Responds to lateral G-forces to show coordinated turn status.
