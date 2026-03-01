@@ -1,18 +1,11 @@
 import threading
+import time
 from dataclasses import dataclass, field
 
 @dataclass
 class FlightState:
     """
     The Single Source of Truth (SSOT) for the aircraft's flight data.
-    
-    Thread-safety is managed via the internal lock.
-    Units:
-        - pitch, roll, heading: Degrees (Standard for display logic, though internals might use radians)
-        - altitude: Feet
-        - airspeed: Knots
-        - vertical_speed: Feet per minute
-        - slip: Relative unit (-1.0 to 1.0)
     """
     pitch: float = 0.0
     roll: float = 0.0
@@ -21,25 +14,24 @@ class FlightState:
     airspeed: float = 0.0
     vertical_speed: float = 0.0
     slip: float = 0.0
+    last_update: float = field(default_factory=time.time)
     
     # Private lock for thread safety
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
 
     def update(self, **kwargs) -> None:
         """
-        Safely updates flight parameters.
-        
-        Args:
-            **kwargs: Key-value pairs of attributes to update.
+        Safely updates flight parameters and the timestamp.
         """
         with self._lock:
+            self.last_update = time.time()
             for key, value in kwargs.items():
                 if hasattr(self, key) and key != "_lock":
                     setattr(self, key, float(value))
 
     def get_snapshot(self) -> 'FlightState':
         """
-        Returns a thread-safe copy of the current state for rendering.
+        Returns a thread-safe copy of the current state.
         """
         with self._lock:
             return FlightState(
@@ -49,5 +41,6 @@ class FlightState:
                 altitude=self.altitude,
                 airspeed=self.airspeed,
                 vertical_speed=self.vertical_speed,
-                slip=self.slip
+                slip=self.slip,
+                last_update=self.last_update
             )

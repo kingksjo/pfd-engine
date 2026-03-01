@@ -56,18 +56,20 @@ def main():
     data_thread.start()
     
     # 3. Start Renderer (Main Thread)
-    # We run the GUI on the main thread to avoid OS-level windowing issues.
-    renderer = PFDRenderer(state, width=1024, height=768)
+    # Reduced height to 700 to fit within standard screen taskbars
+    renderer = PFDRenderer(state, width=1024, height=700)
     
-    # --- Instrument Layout ---
+    # --- Instrument Layout (Adjusted for 700 height) ---
+    y_top = 30
+    instrument_h = 580
     
-    # Center: Artificial Horizon (600x600)
-    horizon = ArtificialHorizon(x=212, y=50, width=600, height=600)
+    # Center: Artificial Horizon
+    horizon = ArtificialHorizon(x=212, y=y_top, width=600, height=instrument_h)
     renderer.add_instrument(horizon)
     
     # Left: Airspeed Tape
     speed_tape = TapeInstrument(
-        x=110, y=50, width=100, height=600,
+        x=110, y=y_top, width=100, height=instrument_h,
         label="IAS (KTS)", pixels_per_unit=4.0, 
         major_step=20, minor_step=10, is_altitude=False
     )
@@ -75,18 +77,18 @@ def main():
     
     # Right: Altitude Tape
     alt_tape = TapeInstrument(
-        x=814, y=50, width=100, height=600,
+        x=814, y=y_top, width=100, height=instrument_h,
         label="ALT (FT)", pixels_per_unit=0.2, 
         major_step=500, minor_step=100, is_altitude=True
     )
     renderer.add_instrument(alt_tape)
     
     # Far Right: Vertical Speed Indicator (VSI)
-    vsi = VerticalSpeedIndicator(x=916, y=150, width=40, height=400)
+    vsi = VerticalSpeedIndicator(x=916, y=y_top + 100, width=40, height=400)
     renderer.add_instrument(vsi)
     
-    # Bottom: Compass Tape (Horizontal)
-    compass = CompassTape(x=212, y=655, width=600, height=60)
+    # Bottom: Compass Tape
+    compass = CompassTape(x=212, y=y_top + instrument_h + 5, width=600, height=60)
     renderer.add_instrument(compass)
     
     try:

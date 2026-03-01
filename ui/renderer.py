@@ -19,7 +19,11 @@ class PFDRenderer:
 
         # Pygame Setup
         pygame.init()
-        self.screen = pygame.display.set_mode((self.width, self.height))
+        # Use RESIZABLE and DOUBLEBUF for better window compatibility
+        self.screen = pygame.display.set_mode(
+            (self.width, self.height), 
+            pygame.RESIZABLE | pygame.DOUBLEBUF
+        )
         pygame.display.set_caption("Glass Cockpit PFD - Aerospace Engine")
         self.clock = pygame.time.Clock()
         
@@ -46,10 +50,12 @@ class PFDRenderer:
             self.screen.blit(text_surf, (10, y_offset))
             y_offset += 20
 
-    def run(self) -> None:
+    def run(self) -> bool:
         """
         The Main Loop.
         Strict 60 FPS target.
+        Returns:
+            bool: False if the user requested to quit.
         """
         self.running = True
         
@@ -58,6 +64,13 @@ class PFDRenderer:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
+                elif event.type == pygame.VIDEORESIZE:
+                    # Update screen size if user drags window
+                    self.width, self.height = event.w, event.h
+                    self.screen = pygame.display.set_mode(
+                        (self.width, self.height), 
+                        pygame.RESIZABLE | pygame.DOUBLEBUF
+                    )
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         self.running = False
@@ -66,7 +79,7 @@ class PFDRenderer:
             current_state = self.state.get_snapshot()
             
             # 3. Clear Screen
-            self.screen.fill(Colors.BLACK) # Use constant
+            self.screen.fill(Colors.BLACK)
             
             # 4. Update & Draw Instruments
             for instrument in self.instruments:
@@ -81,3 +94,4 @@ class PFDRenderer:
             self.clock.tick(60)
             
         pygame.quit()
+        return False

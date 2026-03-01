@@ -120,6 +120,7 @@ class ArtificialHorizon(BaseInstrument):
         off_x = pitch_offset * math.sin(rad_roll)
         off_y = pitch_offset * math.cos(rad_roll)
         
+        # Center of the rotated surface needs to align with the viewport center
         dest_x = (self.rect.width // 2) - (rot_rect.width // 2) + off_x
         dest_y = (self.rect.height // 2) - (rot_rect.height // 2) + off_y
         
