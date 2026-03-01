@@ -19,30 +19,56 @@ class ArtificialHorizon(BaseInstrument):
         
         # 1. Create the static background (Sky & Ground)
         self.bg_surface = pygame.Surface((self.HORIZON_SIZE, self.HORIZON_SIZE))
-        self.bg_surface.fill(Colors.SKY)
-        # Draw ground on the bottom half
-        pygame.draw.rect(
-            self.bg_surface, 
-            Colors.GROUND, 
-            (0, self.HORIZON_SIZE // 2, self.HORIZON_SIZE, self.HORIZON_SIZE // 2)
-        )
-        # Horizon Line
-        pygame.draw.line(
-            self.bg_surface, 
-            Colors.TEXT, 
-            (0, self.HORIZON_SIZE // 2), 
-            (self.HORIZON_SIZE, self.HORIZON_SIZE // 2), 
-            3
-        )
+        
+        # Draw Gradients
+        self._draw_background_gradients()
+        
+        # Anti-aliased Horizon Line (Multiple lines for weight)
+        for i in range(-1, 2):
+            pygame.draw.aaline(
+                self.bg_surface, 
+                Colors.TEXT, 
+                (0, self.HORIZON_SIZE // 2 + i), 
+                (self.HORIZON_SIZE, self.HORIZON_SIZE // 2 + i)
+            )
 
         # 2. Pre-render Pitch Ladder on the bg_surface
         self._draw_pitch_ladder()
 
+    def _draw_background_gradients(self) -> None:
+        """Draws professional sky and ground gradients."""
+        # Sky Colors
+        SKY_TOP = (30, 60, 120)      # Deep Blue
+        SKY_HORIZON = (100, 160, 240) # Light Blue
+        
+        # Ground Colors
+        GROUND_HORIZON = (120, 80, 40) # Light Brown
+        GROUND_BOTTOM = (40, 30, 20)   # Dark Brown
+        
+        half = self.HORIZON_SIZE // 2
+        
+        # Draw Sky Gradient (Top to Horizon)
+        for y in range(half):
+            ratio = y / half
+            # Interpolate
+            r = int(SKY_TOP[0] + (SKY_HORIZON[0] - SKY_TOP[0]) * ratio)
+            g = int(SKY_TOP[1] + (SKY_HORIZON[1] - SKY_TOP[1]) * ratio)
+            b = int(SKY_TOP[2] + (SKY_HORIZON[2] - SKY_TOP[2]) * ratio)
+            pygame.draw.line(self.bg_surface, (r, g, b), (0, y), (self.HORIZON_SIZE, y))
+            
+        # Draw Ground Gradient (Horizon to Bottom)
+        for y in range(half, self.HORIZON_SIZE):
+            ratio = (y - half) / half
+            # Interpolate
+            r = int(GROUND_HORIZON[0] + (GROUND_BOTTOM[0] - GROUND_HORIZON[0]) * ratio)
+            g = int(GROUND_HORIZON[1] + (GROUND_BOTTOM[1] - GROUND_HORIZON[1]) * ratio)
+            b = int(GROUND_HORIZON[2] + (GROUND_BOTTOM[2] - GROUND_HORIZON[2]) * ratio)
+            pygame.draw.line(self.bg_surface, (r, g, b), (0, y), (self.HORIZON_SIZE, y))
+
     def _draw_pitch_ladder(self) -> None:
-        """Draws the degree markings on the background surface."""
+        """Draws the degree markings on the background surface using anti-aliasing."""
         center_x = self.HORIZON_SIZE // 2
         center_y = self.HORIZON_SIZE // 2
-        font = pygame.font.SysFont("Arial", 16, bold=True)
         
         # Draw every 5 degrees
         for deg in range(-90, 95, 5):
@@ -51,44 +77,53 @@ class ArtificialHorizon(BaseInstrument):
             y = center_y - (deg * self.PIXELS_PER_DEGREE)
             width = 40 if deg % 10 == 0 else 20
             
-            # Draw Line
-            pygame.draw.line(self.bg_surface, Colors.TEXT, (center_x - width, y), (center_x + width, y), 2)
+            # Draw Anti-aliased Line (Double weight)
+            pygame.draw.aaline(self.bg_surface, Colors.TEXT, (center_x - width, y), (center_x + width, y))
+            pygame.draw.aaline(self.bg_surface, Colors.TEXT, (center_x - width, y + 1), (center_x + width, y + 1))
             
             # Draw Labels for 10-degree increments
             if deg % 10 == 0:
-                label = font.render(str(abs(deg)), True, Colors.TEXT)
-                self.bg_surface.blit(label, (center_x + width + 5, y - 10))
-                self.bg_surface.blit(label, (center_x - width - 25, y - 10))
+                self.draw_text_with_shadow(
+                    self.bg_surface, str(abs(deg)), 
+                    center_x + width + 10, y, 
+                    size=16, align="left"
+                )
+                self.draw_text_with_shadow(
+                    self.bg_surface, str(abs(deg)), 
+                    center_x - width - 10, y, 
+                    size=16, align="right"
+                )
 
     def _draw_aircraft_symbol(self) -> None:
-        """Draws the fixed yellow 'W' aircraft reference."""
+        """Draws the fixed yellow 'W' aircraft reference with anti-aliasing."""
         center_x, center_y = self.rect.width // 2, self.rect.height // 2
         wing_len = 40
         gap = 20
-        thickness = 4
         yellow = (255, 255, 0)
         
-        # Left Wing
-        pygame.draw.line(self.surface, yellow, (center_x - wing_len - gap, center_y), (center_x - gap, center_y), thickness)
+        # Left Wing (Thick AA wings)
+        for i in range(-1, 2):
+            pygame.draw.aaline(self.surface, yellow, (center_x - wing_len - gap, center_y + i), (center_x - gap, center_y + i))
+        
         # Right Wing
-        pygame.draw.line(self.surface, yellow, (center_x + gap, center_y), (center_x + wing_len + gap, center_y), thickness)
-        # Center 'Nose'
+        for i in range(-1, 2):
+            pygame.draw.aaline(self.surface, yellow, (center_x + gap, center_y + i), (center_x + wing_len + gap, center_y + i))
+        
+        # Center 'Nose' Square
         pygame.draw.rect(self.surface, yellow, (center_x - 4, center_y - 4, 8, 8))
 
     def _draw_slip_indicator(self, slip: float) -> None:
-        """Draws the slip/skid indicator (the ball) at the bottom."""
+        """Draws the slip/skid indicator with anti-aliasing."""
         center_x = self.rect.width // 2
         bottom_y = self.rect.height - 40
         width = 80
         
         # Draw background scale
-        pygame.draw.line(self.surface, Colors.TEXT, (center_x - width//2, bottom_y), (center_x + width//2, bottom_y), 2)
-        # Center ticks
-        pygame.draw.line(self.surface, Colors.TEXT, (center_x - 5, bottom_y - 10), (center_x - 5, bottom_y + 10), 2)
-        pygame.draw.line(self.surface, Colors.TEXT, (center_x + 5, bottom_y - 10), (center_x + 5, bottom_y + 10), 2)
+        pygame.draw.aaline(self.surface, Colors.TEXT, (center_x - width//2, bottom_y), (center_x + width//2, bottom_y))
+        pygame.draw.aaline(self.surface, Colors.TEXT, (center_x - 5, bottom_y - 10), (center_x - 5, bottom_y + 10))
+        pygame.draw.aaline(self.surface, Colors.TEXT, (center_x + 5, bottom_y - 10), (center_x + 5, bottom_y + 10))
         
         # Calculate Ball Position (Clamped to scale)
-        # Slip is -1.0 to 1.0
         ball_x = center_x + (slip * (width // 2))
         ball_x = max(center_x - width//2, min(center_x + width//2, ball_x))
         
@@ -103,24 +138,18 @@ class ArtificialHorizon(BaseInstrument):
         self.surface.fill(Colors.BLACK)
         
         # 2. Calculate Pitch Offset
-        # A positive pitch (nose up) means the horizon moves DOWN relative to the plane.
         pitch_offset = state.pitch * self.PIXELS_PER_DEGREE
         
         # 3. Rotate the background
-        # Note: We rotate by -roll because if the plane banks right, the world appears to tilt left.
         rotated_bg = pygame.transform.rotate(self.bg_surface, -state.roll)
         
         # 4. Calculate blit position to keep rotation centered
-        # This is the tricky part: Pygame's rotate expands the surface.
         rot_rect = rotated_bg.get_rect()
         
-        # Rotation math for the pitch offset:
-        # The pitch shift happens ALONG the vertical axis of the rotated world.
         rad_roll = math.radians(state.roll)
         off_x = pitch_offset * math.sin(rad_roll)
         off_y = pitch_offset * math.cos(rad_roll)
         
-        # Center of the rotated surface needs to align with the viewport center
         dest_x = (self.rect.width // 2) - (rot_rect.width // 2) + off_x
         dest_y = (self.rect.height // 2) - (rot_rect.height // 2) + off_y
         

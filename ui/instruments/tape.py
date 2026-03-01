@@ -1,7 +1,7 @@
 import pygame
 from ui.base_instrument import BaseInstrument
 from core.state import FlightState
-from core.constants import Colors
+from core.constants import Colors, FlightLimits
 
 class TapeInstrument(BaseInstrument):
     """
@@ -31,6 +31,38 @@ class TapeInstrument(BaseInstrument):
         
         # 2. Pre-render the scale
         self._draw_scale()
+        
+        # 3. Draw Color Bands (Airspeed Only)
+        if not self.is_altitude:
+            self._draw_speed_bands()
+
+    def _draw_speed_bands(self) -> None:
+        """Draws V-speed color bands on the airspeed tape."""
+        band_width = 6
+        x_start = self.rect.width - band_width
+        
+        # Helper to draw a band from speed_min to speed_max
+        def draw_band(min_spd, max_spd, color):
+            # Calculate Y positions (remember Y is inverted on our tape surface)
+            # Top of band (higher speed) corresponds to SMALLER Y value
+            y_top = self.tape_height - (max_spd * self.pixels_per_unit) - (self.rect.height // 2)
+            y_bottom = self.tape_height - (min_spd * self.pixels_per_unit) - (self.rect.height // 2)
+            height = y_bottom - y_top
+            
+            pygame.draw.rect(self.tape_surface, color, (x_start, y_top, band_width, height))
+            
+        # Stall Range (0 to Vs) - Red
+        draw_band(0, FlightLimits.V_S, Colors.DANGER)
+        
+        # Normal Range (Vs to Vno) - Green
+        draw_band(FlightLimits.V_S, FlightLimits.V_NO, Colors.GREEN)
+        
+        # Caution Range (Vno to Vne) - Yellow
+        draw_band(FlightLimits.V_NO, FlightLimits.V_NE, Colors.WARNING)
+        
+        # Never Exceed Line (Vne) - Thick Red Line
+        y_vne = self.tape_height - (FlightLimits.V_NE * self.pixels_per_unit) - (self.rect.height // 2)
+        pygame.draw.rect(self.tape_surface, Colors.DANGER, (x_start, y_vne, band_width, 4))
 
     def _draw_scale(self) -> None:
         """Draws tick marks and numbers onto the long tape surface."""

@@ -15,6 +15,7 @@ class PFDRenderer:
         self.width = width
         self.height = height
         self.running = False
+        self.show_vignette = True
         self.instruments: List[BaseInstrument] = []
 
         # Pygame Setup
@@ -29,6 +30,31 @@ class PFDRenderer:
         
         # Font for debug overlay
         self.debug_font = pygame.font.SysFont("Consolas", 14)
+        
+        # Create Glass Vignette Overlay
+        self._create_vignette(self.width, self.height)
+
+    def _create_vignette(self, width: int, height: int) -> None:
+        """Creates a radial gradient surface for the glass effect."""
+        self.vignette_surf = pygame.Surface((width, height), pygame.SRCALPHA)
+        center_x, center_y = width // 2, height // 2
+        max_dist = (center_x**2 + center_y**2) ** 0.5
+        
+        # Faster approach: Create a small gradient and scale it up
+        grad_size = 256
+        grad_surf = pygame.Surface((grad_size, grad_size), pygame.SRCALPHA)
+        for y in range(grad_size):
+            for x in range(grad_size):
+                # Distance from center (0 to 1)
+                dx = (x - grad_size/2) / (grad_size/2)
+                dy = (y - grad_size/2) / (grad_size/2)
+                dist = (dx*dx + dy*dy) ** 0.5
+                
+                if dist > 0.7:
+                    alpha = min(255, int((dist - 0.7) * 3 * 255))
+                    grad_surf.set_at((x, y), (0, 0, 0, alpha))
+        
+        self.vignette_surf = pygame.transform.smoothscale(grad_surf, (width, height))
 
     def add_instrument(self, instrument: BaseInstrument) -> None:
         self.instruments.append(instrument)
@@ -41,7 +67,8 @@ class PFDRenderer:
             f"HDG:   {state.heading:.0f}",
             f"ALT:   {state.altitude:.0f} ft",
             f"IAS:   {state.airspeed:.0f} kts",
-            f"FPS:   {self.clock.get_fps():.1f}"
+            f"FPS:   {self.clock.get_fps():.1f}",
+            f"VIGNETTE: {'ON' if self.show_vignette else 'OFF'} (Toggle 'G')"
         ]
         
         y_offset = 10
@@ -71,9 +98,13 @@ class PFDRenderer:
                         (self.width, self.height), 
                         pygame.RESIZABLE | pygame.DOUBLEBUF
                     )
+                    # Recreate vignette for new size
+                    self._create_vignette(self.width, self.height)
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         self.running = False
+                    elif event.key == pygame.K_g:
+                        self.show_vignette = not self.show_vignette
             
             # 2. State Snapshot (Thread Safety)
             current_state = self.state.get_snapshot()
@@ -85,11 +116,15 @@ class PFDRenderer:
             for instrument in self.instruments:
                 instrument.update(current_state)
                 instrument.draw(self.screen)
+            
+            # 5. Draw Glass Vignette (Optional)
+            if self.show_vignette:
+                self.screen.blit(self.vignette_surf, (0, 0))
                 
-            # 5. Debug Overlay
+            # 6. Debug Overlay
             self._draw_debug_overlay(current_state)
 
-            # 6. Flip & Tick
+            # 7. Flip & Tick
             pygame.display.flip()
             self.clock.tick(60)
             
