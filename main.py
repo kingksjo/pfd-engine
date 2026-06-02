@@ -71,7 +71,7 @@ def main():
     # Left: Airspeed Tape
     speed_tape = TapeInstrument(
         x=110, y=y_top, width=100, height=instrument_h,
-        label="IAS (KTS)", pixels_per_unit=4.0, 
+        label="ASI (KTS)", pixels_per_unit=4.0, 
         major_step=20, minor_step=10, is_altitude=False
     )
     renderer.add_instrument(speed_tape)

@@ -33,6 +33,9 @@ class PFDRenderer:
         
         # Create Glass Vignette Overlay
         self._create_vignette(self.width, self.height)
+        
+        # Create Metal Bezel Overlay
+        self._create_bezel(self.width, self.height)
 
     def _create_vignette(self, width: int, height: int) -> None:
         """Creates a radial gradient surface for the glass effect."""
@@ -55,6 +58,53 @@ class PFDRenderer:
                     grad_surf.set_at((x, y), (0, 0, 0, alpha))
         
         self.vignette_surf = pygame.transform.smoothscale(grad_surf, (width, height))
+
+    def _create_bezel(self, width: int, height: int) -> None:
+        """Creates a metal-looking bezel overlay with 3D bevels and screws."""
+        self.bezel_surf = pygame.Surface((width, height), pygame.SRCALPHA)
+        self.bezel_surf.fill((0, 0, 0, 0))
+        
+        thickness = 35
+        base_color = (120, 130, 140)
+        highlight = (180, 190, 200)
+        shadow = (60, 70, 80)
+        
+        # 1. Fill borders
+        pygame.draw.rect(self.bezel_surf, base_color, (0, 0, width, thickness)) # Top
+        pygame.draw.rect(self.bezel_surf, base_color, (0, height - thickness, width, thickness)) # Bottom
+        pygame.draw.rect(self.bezel_surf, base_color, (0, 0, thickness, height)) # Left
+        pygame.draw.rect(self.bezel_surf, base_color, (width - thickness, 0, thickness, height)) # Right
+        
+        # 2. Bevels (Highlights)
+        pygame.draw.line(self.bezel_surf, highlight, (0, 0), (width, 0), 2) # Top outer
+        pygame.draw.line(self.bezel_surf, highlight, (0, 0), (0, height), 2) # Left outer
+        pygame.draw.line(self.bezel_surf, highlight, (thickness, height - thickness), (width - thickness, height - thickness), 2) # Bottom inner
+        pygame.draw.line(self.bezel_surf, highlight, (width - thickness, thickness), (width - thickness, height - thickness), 2) # Right inner
+        
+        # 3. Bevels (Shadows)
+        pygame.draw.line(self.bezel_surf, shadow, (0, height - 2), (width, height - 2), 2) # Bottom outer
+        pygame.draw.line(self.bezel_surf, shadow, (width - 2, 0), (width - 2, height), 2) # Right outer
+        pygame.draw.line(self.bezel_surf, shadow, (thickness, thickness), (width - thickness, thickness), 2) # Top inner
+        pygame.draw.line(self.bezel_surf, shadow, (thickness, thickness), (thickness, height - thickness), 2) # Left inner
+        
+        # 4. Screws
+        screw_base = (100, 110, 120)
+        screw_shadow = (40, 45, 50)
+        screw_hl = (160, 170, 180)
+        centers = [
+            (thickness // 2, thickness // 2),
+            (width - thickness // 2, thickness // 2),
+            (thickness // 2, height - thickness // 2),
+            (width - thickness // 2, height - thickness // 2)
+        ]
+        for cx, cy in centers:
+            # Shadow
+            pygame.draw.circle(self.bezel_surf, screw_shadow, (cx + 1, cy + 1), 7)
+            # Base
+            pygame.draw.circle(self.bezel_surf, screw_base, (cx, cy), 7)
+            # Slot
+            pygame.draw.line(self.bezel_surf, screw_shadow, (cx - 4, cy - 4), (cx + 4, cy + 4), 2)
+            pygame.draw.line(self.bezel_surf, screw_hl, (cx - 4, cy - 3), (cx + 4, cy + 5), 1)
 
     def add_instrument(self, instrument: BaseInstrument) -> None:
         self.instruments.append(instrument)
@@ -100,6 +150,8 @@ class PFDRenderer:
                     )
                     # Recreate vignette for new size
                     self._create_vignette(self.width, self.height)
+                    # Recreate bezel for new size
+                    self._create_bezel(self.width, self.height)
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         self.running = False
@@ -121,10 +173,13 @@ class PFDRenderer:
             if self.show_vignette:
                 self.screen.blit(self.vignette_surf, (0, 0))
                 
-            # 6. Debug Overlay
+            # 6. Draw Metal Bezel
+            self.screen.blit(self.bezel_surf, (0, 0))
+                
+            # 7. Debug Overlay
             self._draw_debug_overlay(current_state)
 
-            # 7. Flip & Tick
+            # 8. Flip & Tick
             pygame.display.flip()
             self.clock.tick(60)
             

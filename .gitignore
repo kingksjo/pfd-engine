@@ -66,3 +66,7 @@ htmlcov/
 *.o
 *.a
 *.so
+
+
+*.png
+
