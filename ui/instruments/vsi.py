@@ -14,26 +14,38 @@ class VerticalSpeedIndicator(BaseInstrument):
     
     def __init__(self, x: int, y: int, width: int, height: int):
         super().__init__(x, y, width, height)
-        self.pixels_per_fpm = (height / 2) / self.RANGE
+        # Using 80% of height for the active range so max limits aren't at the very edge
+        self.usable_height = height * 0.8
+        self.pixels_per_fpm = (self.usable_height / 2) / self.RANGE
 
     def _draw_scale(self) -> None:
         """Draws the static background scale for the VSI."""
         self.surface.fill(Colors.BEZEL)
         center_y = self.rect.height // 2
-        font = pygame.font.SysFont("Arial", 12, bold=True)
+        font = pygame.font.SysFont("Arial", 14, bold=True)
+        
+        # Left border line (separating from altitude tape)
+        pygame.draw.line(self.surface, Colors.TEXT, (0, 0), (0, self.rect.height), 2)
+        
+        # Center zero line
+        pygame.draw.line(self.surface, Colors.TEXT, (0, center_y), (8, center_y), 3)
         
         # Scale markers
-        for val in [-2000, -1000, -500, 0, 500, 1000, 2000]:
+        for val in [-2000, -1500, -1000, -500, 500, 1000, 1500, 2000]:
             y = center_y - (val * self.pixels_per_fpm)
-            pygame.draw.line(self.surface, Colors.TEXT, (0, y), (10, y), 2)
+            tick_length = 8 if val % 1000 == 0 else 5
             
-            # Label
-            if val != 0:
-                label = font.render(str(abs(val // 100)), True, Colors.TEXT)
-                self.surface.blit(label, (12, y - 6))
+            pygame.draw.line(self.surface, Colors.TEXT, (0, y), (tick_length, y), 2)
+            
+            # Label only major ticks (1, 2)
+            if val % 1000 == 0:
+                label_val = abs(val) // 1000
+                label = font.render(str(label_val), True, Colors.TEXT)
+                # Position label to the right of the tick
+                self.surface.blit(label, (14, y - label.get_height() // 2))
 
     def _update_logic(self, state: FlightState) -> None:
-        """Draws the moving bar based on current vertical speed."""
+        """Draws the moving indicator based on current vertical speed."""
         self._draw_scale()
         center_y = self.rect.height // 2
         
@@ -43,23 +55,37 @@ class VerticalSpeedIndicator(BaseInstrument):
         # Vertical Position
         target_y = center_y - (vsi * self.pixels_per_fpm)
         
-        # Draw the Indicator Bar
-        bar_color = Colors.GREEN if vsi >= 0 else Colors.DANGER
-        pygame.draw.rect(
-            self.surface, 
-            bar_color, 
-            (0, min(center_y, target_y), self.rect.width // 2, abs(center_y - target_y))
+        # Draw the Indicator Column (thin line from center to target)
+        col_width = 3
+        bar_rect = pygame.Rect(
+            0, min(center_y, target_y), 
+            col_width, abs(center_y - target_y)
         )
+        pygame.draw.rect(self.surface, Colors.GREEN if vsi >= 0 else Colors.TEXT, bar_rect)
         
-        # Pointer Triangle
+        # Pointer Triangle (Points left, base on the right)
         pygame.draw.polygon(self.surface, Colors.TEXT, [
-            (self.rect.width, target_y),
-            (self.rect.width - 10, target_y - 8),
-            (self.rect.width - 10, target_y + 8)
+            (0, target_y),
+            (10, target_y - 8),
+            (10, target_y + 8)
         ])
         
-        # Digital Value at the bottom
-        font = pygame.font.SysFont("Arial", 14, bold=True)
-        v_str = f"{int(abs(vsi))}"
-        val_surf = font.render(v_str, True, Colors.TEXT)
-        self.surface.blit(val_surf, (self.rect.width // 2 - 10, self.rect.height - 20))
+        # Digital Value Box at top or bottom (only if |VSI| >= 100)
+        if abs(vsi) >= 100:
+            font = pygame.font.SysFont("Consolas", 12, bold=True)
+            v_str = f"{abs(int(vsi))}"
+            val_surf = font.render(v_str, True, Colors.BLACK)
+            
+            # Box dimensions
+            box_w = val_surf.get_width() + 4
+            box_h = val_surf.get_height() + 4
+            box_x = max(0, self.rect.width - box_w)
+            
+            # Position box above or below the pointer to not obstruct it
+            if vsi > 0:
+                box_y = max(0, target_y - box_h - 10)
+            else:
+                box_y = min(self.rect.height - box_h, target_y + 10)
+                
+            pygame.draw.rect(self.surface, Colors.TEXT, (box_x, box_y, box_w, box_h))
+            self.surface.blit(val_surf, (box_x + 2, box_y + 2))
