@@ -48,13 +48,17 @@ Located in `ui/instruments/compass.py`.
 ## 4. Vertical Speed Indicator (VSI)
 Located in `ui/instruments/vsi.py`.
 
-### Rendering Model: "Dynamic Bar"
-*   **Concept:** A rate-of-change indicator, not a position indicator.
-*   **Scale:** Linear mapping from -2000 to +2000 Feet Per Minute (FPM).
-*   **Visual:** A colored bar grows from the center zero-point. Green for climb (positive), Red for descent (negative).
+### Rendering Model: "Sliding Pointer & Scale"
+*   **Concept:** A rate-of-change indicator placed directly adjacent to the altitude tape.
+*   **Scale:** Linear mapping from -2000 to +2000 Feet Per Minute (FPM), optimized to fit within 80% of the instrument height.
+*   **Visual:** A left-pointing triangular indicator slides vertically along static tick marks. A dynamic digital readout box automatically appears above or below the pointer when the vertical speed exceeds 100 FPM.
 
 ## 5. Visual Effects
 Located in `ui/renderer.py`.
+
+### Metallic Bezel Overlay
+*   **Purpose:** Provides a hardware-like physical frame around the edges of the PFD window to enhance realism.
+*   **Implementation:** A pre-rendered metallic grey surface with dynamic 3D bevels (highlights and shadows) and corner screws. It adapts dynamically to window resize events.
 
 ### Glass Vignette Overlay
 *   **Purpose:** Simulates the physical glass screen and bezel of an avionics unit.
