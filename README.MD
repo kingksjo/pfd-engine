@@ -27,15 +27,26 @@ A high-performance, multithreaded Primary Flight Display (PFD) engine built with
 
 3.  **Install Dependencies:**
     ```bash
-    pip install pygame
+    pip install -r requirements.txt
     ```
 
 ## Running the Engine
 
-Simply run the main entry point:
+You can run the engine in two modes:
+
+### 1. Simulation Mode (Default)
+Runs a local physics simulation using smooth sine waves for attitude and altitude (useful for testing without hardware).
 ```bash
 python main.py
 ```
+
+### 2. Live Hardware Mode
+Connects directly to your dual-core ESP32 avionics board running the `AbleTechPFDProject.ino` firmware.
+```bash
+python main.py --port COM5
+```
+*   **--port**: Serial/USB port (e.g. `COM5` on Windows, `/dev/ttyUSB0` or `/dev/tty.usbserial-xxx` on Unix).
+*   **--baud**: Serial baud rate. Must match `SERIAL_BAUD` in the firmware (defaults to `921600`).
 
 ### Controls & Key Bindings
 

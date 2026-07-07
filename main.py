@@ -1,20 +1,22 @@
+import argparse
 import threading
 import time
 import sys
 from core.state import FlightState
 from game_io.mock_sensor import MockSensor
+from game_io.hardware_sensor import HardwareSensor
+from game_io.sensor_interface import SensorInterface
 from ui.renderer import PFDRenderer
 from ui.instruments.horizon import ArtificialHorizon
 from ui.instruments.tape import TapeInstrument
 from ui.instruments.compass import CompassTape
 from ui.instruments.vsi import VerticalSpeedIndicator
 
-def sensor_loop(state: FlightState, stop_event: threading.Event):
+def sensor_loop(sensor: SensorInterface, state: FlightState, stop_event: threading.Event):
     """
     Background thread acting as the 'Data Thread'.
     Polls the sensor at high frequency (100Hz) and updates the thread-safe state.
     """
-    sensor = MockSensor()
     if not sensor.connect():
         print("[ERROR] Failed to connect to sensor!")
         return
@@ -32,26 +34,53 @@ def sensor_loop(state: FlightState, stop_event: threading.Event):
         if data:
             state.update(**data)
         
-        # Sleep remainder of interval
+        # Sleep remainder of interval regardless of whether a frame arrived.
         # Using stop_event.wait() allows instant shutdown responsiveness
-            elapsed = time.time() - start_time
-            sleep_time = max(0.0, interval - elapsed)
-            stop_event.wait(sleep_time)
+        elapsed = time.time() - start_time
+        sleep_time = max(0.0, interval - elapsed)
+        stop_event.wait(sleep_time)
     
     sensor.close()
     print("[INFO] Sensor thread stopped.")
 
+def build_sensor(args: argparse.Namespace) -> SensorInterface:
+    """
+    Selects the live hardware sensor (AbleTechPFDProject over serial) when
+    --port is given, otherwise falls back to the simulated MockSensor.
+    """
+    if args.port:
+        return HardwareSensor(port=args.port, baud=args.baud)
+    return MockSensor()
+
+
 def main():
+    parser = argparse.ArgumentParser(description="Glass Cockpit PFD Engine")
+    parser.add_argument(
+        "--port", default=None,
+        help="Serial port of the AbleTechPFDProject ESP32 (e.g. COM5 or /dev/ttyUSB0). "
+             "Omit to run against the simulated MockSensor."
+    )
+    parser.add_argument(
+        "--baud", type=int, default=921600,
+        help="Serial baud rate. Must match SERIAL_BAUD in the firmware (default 921600)."
+    )
+    args = parser.parse_args()
+
     print("[INFO] Initializing PFD Engine...")
+    if args.port:
+        print(f"[INFO] Live hardware mode: {args.port} @ {args.baud} baud")
+    else:
+        print("[INFO] Simulation mode (MockSensor). Pass --port COMx for live hardware.")
     
     # 1. Init Shared State
     state = FlightState()
+    sensor = build_sensor(args)
     
     # 2. Start Data Thread
     stop_event = threading.Event()
     data_thread = threading.Thread(
         target=sensor_loop, 
-        args=(state, stop_event), 
+        args=(sensor, state, stop_event), 
         daemon=True
     )
     data_thread.start()
