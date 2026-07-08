@@ -16,9 +16,10 @@ Located in `core/state.py`, the `FlightState` class is the central nervous syste
 Located in `main.py` -> `sensor_loop`.
 *   **Frequency:** Runs at a precise **100Hz**.
 *   **Responsibility:** Polls the active sensor driver updating the `FlightState` atomically.
-*   **Modes:** Supports two operational modes configured via command-line arguments:
+*   **Modes:** Supports three operational modes configured via command-line arguments:
     *   **Simulation Mode:** Polls a local physics-based `MockSensor` generating smooth, coherent motion waves.
-    *   **Hardware Mode (`--port`):** Connects to the ESP32 flight computer running the custom Arduino firmware via `pyserial` at 921600 Baud (default) to process live sensory feeds from IMUs, barometers, and pitot sensors.
+    *   **Serial Hardware Mode (`--port`):** Connects to the ESP32 flight computer running the custom Arduino firmware via `pyserial` at 921600 Baud (default) to process live sensory feeds from IMUs, barometers, and pitot sensors.
+    *   **Wi-Fi UDP Mode (`--wifi [port]`):** Activates a local UDP socket bound to port `5005` (default) to subscribe to incoming wireless broadcast datagrams from the ESP32 chip over the local network.
 *   **Timing:** Uses `stop_event.wait(timeout)` for deterministic timing and instant shutdown responsiveness.
 
 ### 3. The Render Thread (Consumer)
@@ -27,15 +28,20 @@ Located in `ui/renderer.py`.
 *   **Responsibility:** Reads the state snapshot and orchestrates the drawing of all instruments.
 *   **Window Management:** Handles resizing, fullscreen toggles, and input events (like the 'G' key for glass overlay).
 
-## Hardware Integration & Serial Protocol
+## Hardware Integration & Telemetry Protocols
 
-When launched with the `--port` option, the system activates `HardwareSensor` inside [game_io/hardware_sensor.py](../game_io/hardware_sensor.py), which communicates directly with the physical ESP32 avionics board over USB/Serial.
+When interacting with the physical ESP32 avionics board, the engine supports two connection protocols:
 
-### Telemetry Packet Format
-The firmware pushes a periodic ASCII CSV stream over the UART interface at **921600 baud**:
+### 1. Serial (USB) Protocol (`--port [port]`)
+The system activates `HardwareSensor` inside [game_io/hardware_sensor.py](../game_io/hardware_sensor.py), which listens directly to the board's serial UART stream at **921600 baud**:
 ```text
 $PFD,IAS_kts,TAS_kts,Mach,alt_ft,VSI_fpm,roll_deg,pitch_deg,hdg_deg,OAT_C,QNH_hPa,pres_hPa,ts_ms\n
 ```
+
+### 2. Wi-Fi (UDP) Protocol (`--wifi [port]`)
+By changing `#define COMM_MODE COMM_WIFI` in `AbleTechPFDProject.ino`, the ESP32 acts as a wireless client communicating over a local network.
+*   **Packet Stream:** The ESP32 targets the Python client's machine IP (`UDP_HOST`) and specified port (`UDP_PORT`, default `5005`) pushing raw ASCII-CSV packets with the same `$PFD` schema over the air.
+*   **Sensor Interface:** The python backend activates `WifiSensor` inside [game_io/wifi_sensor.py](../game_io/wifi_sensor.py) binding a standard UDP socket to `0.0.0.0` at the selected port to grab these incoming datagrams.
 
 ### Telemetry Mapping to GUI state:
 | Telemetry Field Index | Value Name | FlightState Map Target | Range / Unit |
@@ -67,12 +73,14 @@ To prevent the display of "frozen" (and thus dangerous) flight data, the system 
 ```mermaid
 graph TD
     subgraph Hardware Setup (Live)
-        HW[ESP32 Flight Computer] -->|Serial Link (921600 Baud)| HS[HardwareSensor]
+        HW_Serial[ESP32 Flight Computer] -->|Serial UART (921600 Baud)| HS[HardwareSensor]
+        HW_Wifi[ESP32 Flight Computer] -->|Wi-Fi UDP Broadcast| WS[WifiSensor]
     end
     subgraph Local Simulation (Fallback)
         MS[MockSensor]
     end
     HS -->|Telemetry dict| DT[Data Thread - 100Hz]
+    WS -->|Telemetry dict| DT
     MS -->|Simulated dict| DT
     DT -->|Atomic Update| C{FlightState (SSOT)}
     D[Render Thread (60Hz)] -->|Request Snapshot| C

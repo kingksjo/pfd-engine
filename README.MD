@@ -32,7 +32,7 @@ A high-performance, multithreaded Primary Flight Display (PFD) engine built with
 
 ## Running the Engine
 
-You can run the engine in two modes:
+You can run the engine in three modes:
 
 ### 1. Simulation Mode (Default)
 Runs a local physics simulation using smooth sine waves for attitude and altitude (useful for testing without hardware).
@@ -40,13 +40,21 @@ Runs a local physics simulation using smooth sine waves for attitude and altitud
 python main.py
 ```
 
-### 2. Live Hardware Mode
-Connects directly to your dual-core ESP32 avionics board running the `AbleTechPFDProject.ino` firmware.
+### 2. Live Serial Mode (USB Cable)
+Connects directly to your dual-core ESP32 board over a USB cable.
 ```bash
 python main.py --port COM5
 ```
 *   **--port**: Serial/USB port (e.g. `COM5` on Windows, `/dev/ttyUSB0` or `/dev/tty.usbserial-xxx` on Unix).
 *   **--baud**: Serial baud rate. Must match `SERIAL_BAUD` in the firmware (defaults to `921600`).
+
+### 3. Live Wi-Fi Mode (Over-the-Air UDP)
+Listens for wireless UDP telemetry packets sent by the ESP32 over your local network.
+```bash
+python main.py --wifi 5005
+```
+*   **--wifi**: Sets up a local UDP server listening on the specified port (defaults to `5005` if passed empty like `python main.py --wifi`).
+*   **Setup Tip:** On startup, the console prints the active Local IP address of your computer. In `AbleTechPFDProject.ino`, enable Wi-Fi mode by setting `#define COMM_MODE COMM_WIFI` and configure `UDP_HOST` to your computer's IP address. Ensure both devices are on the same local network footprint.
 
 ### Controls & Key Bindings
 

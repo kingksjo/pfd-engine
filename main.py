@@ -2,9 +2,11 @@ import argparse
 import threading
 import time
 import sys
+import socket
 from core.state import FlightState
 from game_io.mock_sensor import MockSensor
 from game_io.hardware_sensor import HardwareSensor
+from game_io.wifi_sensor import WifiSensor
 from game_io.sensor_interface import SensorInterface
 from ui.renderer import PFDRenderer
 from ui.instruments.horizon import ArtificialHorizon
@@ -45,10 +47,12 @@ def sensor_loop(sensor: SensorInterface, state: FlightState, stop_event: threadi
 
 def build_sensor(args: argparse.Namespace) -> SensorInterface:
     """
-    Selects the live hardware sensor (AbleTechPFDProject over serial) when
-    --port is given, otherwise falls back to the simulated MockSensor.
+    Selects the live sensor (AbleTechPFDProject over Serial, Wi-Fi UDP, or Mock Simulation)
+    based on command-line arguments.
     """
-    if args.port:
+    if args.wifi:
+        return WifiSensor(port=args.wifi)
+    elif args.port:
         return HardwareSensor(port=args.port, baud=args.baud)
     return MockSensor()
 
@@ -58,19 +62,44 @@ def main():
     parser.add_argument(
         "--port", default=None,
         help="Serial port of the AbleTechPFDProject ESP32 (e.g. COM5 or /dev/ttyUSB0). "
-             "Omit to run against the simulated MockSensor."
+             "Omit to run against simulated or Wi-Fi mode."
     )
     parser.add_argument(
         "--baud", type=int, default=921600,
         help="Serial baud rate. Must match SERIAL_BAUD in the firmware (default 921600)."
     )
+    parser.add_argument(
+        "--wifi", type=int, nargs="?", const=5005, default=None,
+        help="Run in Wi-Fi UDP server mode. Listens on specified port (default 5005). "
+             "Omit to use Serial or simulated mode."
+    )
     args = parser.parse_args()
 
     print("[INFO] Initializing PFD Engine...")
-    if args.port:
-        print(f"[INFO] Live hardware mode: {args.port} @ {args.baud} baud")
+    if args.wifi:
+        print(f"[INFO] Wi-Fi hardware mode: Listening for UDP packets on port {args.wifi}")
+        try:
+            # Simple trick to find preferred outbound IP of active network adapter
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+            s.close()
+            print(f"[INFO] Network IP of this machine: {local_ip}")
+            print(f"[INFO] -> STEP: Set '#define COMM_MODE COMM_WIFI' and 'UDP_HOST \"{local_ip}\"' and 'UDP_PORT {args.wifi}' in the firmware.")
+        except Exception:
+            hostname = socket.gethostname()
+            ips = []
+            try:
+                ips = socket.gethostbyname_ex(hostname)[2]
+            except Exception:
+                pass
+            if ips:
+                print(f"[INFO] Potential IP addresses of this machine: {', '.join(ips)}")
+            print(f"[INFO] -> STEP: Set '#define COMM_MODE COMM_WIFI' and 'UDP_HOST' to your machine's IP, and 'UDP_PORT' to {args.wifi} in the firmware.")
+    elif args.port:
+        print(f"[INFO] Live serial hardware mode: {args.port} @ {args.baud} baud")
     else:
-        print("[INFO] Simulation mode (MockSensor). Pass --port COMx for live hardware.")
+        print("[INFO] Simulation mode (MockSensor). Use --port COMx or --wifi [port] for live hardware.")
     
     # 1. Init Shared State
     state = FlightState()
