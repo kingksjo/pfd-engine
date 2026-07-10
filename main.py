@@ -57,6 +57,54 @@ def build_sensor(args: argparse.Namespace) -> SensorInterface:
     return MockSensor()
 
 
+def print_local_ip_candidates(wifi_port: int) -> None:
+    """
+    Enumerates every local IPv4 address (one per network adapter), instead of
+    just the address of the adapter with the default internet route.
+
+    This matters specifically for a PC-hosted Mobile Hotspot: the "connect to
+    8.8.8.8 and read the socket name" trick reports the IP of whichever
+    adapter has the default route (usually your normal Wi-Fi/Ethernet
+    uplink), NOT the virtual Hotspot adapter the ESP32 actually joins
+    (typically 192.168.137.1 on Windows). Pointing UDP_HOST at the wrong
+    adapter's IP means the ESP32's packets go nowhere the Python app is
+    listening -> permanent "DATA FAIL" on the PFD.
+    """
+    hostname = socket.gethostname()
+    ips = set()
+    try:
+        ips.update(socket.gethostbyname_ex(hostname)[2])
+    except Exception:
+        pass
+    try:
+        # getaddrinfo often surfaces adapters gethostbyname_ex misses (incl. ICS/Hotspot)
+        for info in socket.getaddrinfo(hostname, None, socket.AF_INET):
+            ips.add(info[4][0])
+    except Exception:
+        pass
+    ips.discard("127.0.0.1")
+
+    if not ips:
+        print("[WARN] Could not detect any local IPv4 addresses. Run 'ipconfig' manually.")
+        return
+
+    hotspot_ips = [ip for ip in ips if ip.startswith("192.168.137.")]
+    other_ips = sorted(ips - set(hotspot_ips))
+
+    print("[INFO] Local IPv4 addresses detected on this machine:")
+    for ip in hotspot_ips:
+        print(f"       -> {ip}  (Windows Mobile Hotspot adapter — likely correct if ESP32 joined your hotspot)")
+    for ip in other_ips:
+        print(f"       -> {ip}")
+
+    best_guess = hotspot_ips[0] if hotspot_ips else (other_ips[0] if other_ips else None)
+    if best_guess:
+        print(f"[INFO] -> STEP: In the firmware, set '#define COMM_MODE COMM_WIFI', "
+              f"'UDP_HOST \"{best_guess}\"', and 'UDP_PORT {wifi_port}'.")
+    print("[INFO] -> Also verify: ESP32 and this PC are on the SAME network (the hotspot), "
+          "and Windows Firewall allows inbound UDP for python.exe on this port.")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Glass Cockpit PFD Engine")
     parser.add_argument(
@@ -78,24 +126,7 @@ def main():
     print("[INFO] Initializing PFD Engine...")
     if args.wifi:
         print(f"[INFO] Wi-Fi hardware mode: Listening for UDP packets on port {args.wifi}")
-        try:
-            # Simple trick to find preferred outbound IP of active network adapter
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(("8.8.8.8", 80))
-            local_ip = s.getsockname()[0]
-            s.close()
-            print(f"[INFO] Network IP of this machine: {local_ip}")
-            print(f"[INFO] -> STEP: Set '#define COMM_MODE COMM_WIFI' and 'UDP_HOST \"{local_ip}\"' and 'UDP_PORT {args.wifi}' in the firmware.")
-        except Exception:
-            hostname = socket.gethostname()
-            ips = []
-            try:
-                ips = socket.gethostbyname_ex(hostname)[2]
-            except Exception:
-                pass
-            if ips:
-                print(f"[INFO] Potential IP addresses of this machine: {', '.join(ips)}")
-            print(f"[INFO] -> STEP: Set '#define COMM_MODE COMM_WIFI' and 'UDP_HOST' to your machine's IP, and 'UDP_PORT' to {args.wifi} in the firmware.")
+        print_local_ip_candidates(args.wifi)
     elif args.port:
         print(f"[INFO] Live serial hardware mode: {args.port} @ {args.baud} baud")
     else:

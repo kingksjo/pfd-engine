@@ -1,4 +1,5 @@
 import socket
+import time
 from typing import Dict, Optional
 
 from .sensor_interface import SensorInterface
@@ -7,6 +8,9 @@ from .sensor_interface import SensorInterface
 #   "$PFD,IAS,TAS,Mach,alt_ft,VSI,roll,pitch,hdg,OAT,QNH,pres,ts_ms\n"
 PACKET_PREFIX = "$PFD,"
 PACKET_FIELD_COUNT = 12
+
+# How long to wait with zero received packets before printing a diagnostic hint.
+SILENCE_WARNING_SEC = 3.0
 
 
 class WifiSensor(SensorInterface):
@@ -26,6 +30,9 @@ class WifiSensor(SensorInterface):
         self.port = port
         self.timeout = timeout
         self._sock: Optional[socket.socket] = None
+        self._first_packet_seen = False
+        self._last_packet_time = 0.0
+        self._silence_warned = False
 
     def connect(self) -> bool:
         try:
@@ -34,7 +41,8 @@ class WifiSensor(SensorInterface):
             self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self._sock.bind(("0.0.0.0", self.port))
             self._sock.settimeout(self.timeout)
-            print(f"[INFO] WifiSensor: Bound to 0.0.0.0:{self.port} successfully.")
+            self._last_packet_time = time.time()
+            print(f"[INFO] WifiSensor: Bound to 0.0.0.0:{self.port} successfully. Waiting for ESP32 packets...")
             return True
         except Exception as e:
             print(f"[ERROR] WifiSensor: Failed to bind to port {self.port}: {e}")
@@ -50,11 +58,25 @@ class WifiSensor(SensorInterface):
             data, addr = self._sock.recvfrom(1024)
             raw = data.decode("ascii", errors="ignore").strip()
         except socket.timeout:
-            # Normal if packet frequency is lower than timeout or during temporary disconnects
+            # Normal if packet frequency is lower than timeout or during temporary disconnects.
+            # But if we've NEVER received anything and it's been a while, the most likely causes
+            # are: wrong UDP_HOST in the firmware, ESP32/PC on different networks, or a firewall
+            # blocking inbound UDP to python.exe.
+            if not self._first_packet_seen and not self._silence_warned:
+                if time.time() - self._last_packet_time > SILENCE_WARNING_SEC:
+                    self._silence_warned = True
+                    print("[WARN] WifiSensor: no UDP packets received on port "
+                          + str(self.port) + " yet. Check that: (1) firmware UDP_HOST "
+                          "matches this PC's hotspot IP, (2) COMM_MODE is set to COMM_WIFI "
+                          "and re-flashed, (3) Windows Firewall allows inbound UDP for python.exe.")
             return {}
         except Exception as e:
             print(f"[ERROR] WifiSensor: read failed: {e}")
             return {}
+
+        if not self._first_packet_seen:
+            self._first_packet_seen = True
+            print(f"[INFO] WifiSensor: first packet received from {addr[0]}:{addr[1]}")
 
         if not raw.startswith(PACKET_PREFIX):
             return {}
