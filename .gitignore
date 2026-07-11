@@ -67,6 +67,7 @@ htmlcov/
 *.a
 *.so
 
+telemetry_logs/
 
 *.png
 

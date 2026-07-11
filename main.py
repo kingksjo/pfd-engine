@@ -124,14 +124,17 @@ def main():
     args = parser.parse_args()
 
     print("[INFO] Initializing PFD Engine...")
+    sensor_type = "Simulation"
     if args.wifi:
         print(f"[INFO] Wi-Fi hardware mode: Listening for UDP packets on port {args.wifi}")
         print_local_ip_candidates(args.wifi)
+        sensor_type = "Wi-Fi (UDP)"
     elif args.port:
         print(f"[INFO] Live serial hardware mode: {args.port} @ {args.baud} baud")
+        sensor_type = f"Serial ({args.port})"
     else:
         print("[INFO] Simulation mode (MockSensor). Use --port COMx or --wifi [port] for live hardware.")
-    
+
     # 1. Init Shared State
     state = FlightState()
     sensor = build_sensor(args)
@@ -147,7 +150,7 @@ def main():
     
     # 3. Start Renderer (Main Thread)
     # Reduced height to 700 to fit within standard screen taskbars
-    renderer = PFDRenderer(state, width=1024, height=700)
+    renderer = PFDRenderer(state, width=1024, height=700, sensor_type=sensor_type)
     
     # --- Instrument Layout (Adjusted for 700 height) ---
     y_top = 30

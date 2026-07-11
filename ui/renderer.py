@@ -3,17 +3,26 @@ from typing import List
 from core.state import FlightState
 from core.constants import Colors
 from .base_instrument import BaseInstrument
+from .telemetry import TelemetryScreen
 
 class PFDRenderer:
     """
     The main rendering engine.
-    Manages the Pygame window, the event loop, and the collection of instruments.
+    Manages the Pygame window, the event loop, the collection of instruments,
+    and the real-time telemetry panel.
     """
     
-    def __init__(self, state: FlightState, width: int = 800, height: int = 600):
+    def __init__(self, state: FlightState, width: int = 1024, height: int = 700,
+                 sensor_type: str = "Simulation", show_telemetry: bool = True):
         self.state = state
-        self.width = width
+        self.pfd_width = width
+        self.pfd_height = height
         self.height = height
+        self.show_telemetry = show_telemetry
+        self.sensor_type = sensor_type
+        
+        # Calculate actual window width including telemetry side panel if enabled
+        self.width = self.pfd_width + 400 if self.show_telemetry else self.pfd_width
         self.running = False
         self.show_vignette = True
         self.instruments: List[BaseInstrument] = []
@@ -31,11 +40,17 @@ class PFDRenderer:
         # Font for debug overlay
         self.debug_font = pygame.font.SysFont("Consolas", 14)
         
-        # Create Glass Vignette Overlay
-        self._create_vignette(self.width, self.height)
+        # Create Glass Vignette Overlay (sized to cover PFD only)
+        self._create_vignette(self.pfd_width, self.pfd_height)
         
-        # Create Metal Bezel Overlay
-        self._create_bezel(self.width, self.height)
+        # Create Metal Bezel Overlay (sized to cover PFD only)
+        self._create_bezel(self.pfd_width, self.pfd_height)
+        
+        # Initialize Telemetry Panel
+        self.telemetry = TelemetryScreen(
+            x=self.pfd_width, y=0, width=400, height=self.height,
+            sensor_type=self.sensor_type
+        )
 
     def _create_vignette(self, width: int, height: int) -> None:
         """Creates a radial gradient surface for the glass effect."""
@@ -118,7 +133,8 @@ class PFDRenderer:
             f"ALT:   {state.altitude:.0f} ft",
             f"IAS:   {state.airspeed:.0f} kts",
             f"FPS:   {self.clock.get_fps():.1f}",
-            f"VIGNETTE: {'ON' if self.show_vignette else 'OFF'} (Toggle 'G')"
+            f"VIGNETTE: {'ON' if self.show_vignette else 'OFF'} (Toggle 'G')",
+            f"TELEMETRY: {'ON' if self.show_telemetry else 'OFF'} (Toggle 'T')"
         ]
         
         y_offset = 10
@@ -148,40 +164,59 @@ class PFDRenderer:
                         (self.width, self.height), 
                         pygame.RESIZABLE | pygame.DOUBLEBUF
                     )
-                    # Recreate vignette for new size
-                    self._create_vignette(self.width, self.height)
-                    # Recreate bezel for new size
-                    self._create_bezel(self.width, self.height)
+                    # Re-adjust telemetry panel dimensions
+                    self.telemetry.rect.x = self.width - 400
+                    self.telemetry.rect.height = self.height
+                    self.telemetry.surface = pygame.Surface((self.telemetry.rect.width, self.height))
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         self.running = False
                     elif event.key == pygame.K_g:
                         self.show_vignette = not self.show_vignette
+                    elif event.key == pygame.K_t:
+                        self.show_telemetry = not self.show_telemetry
+                        # Update window width dynamically
+                        self.width = self.pfd_width + 400 if self.show_telemetry else self.pfd_width
+                        self.screen = pygame.display.set_mode(
+                            (self.width, self.height),
+                            pygame.RESIZABLE | pygame.DOUBLEBUF
+                        )
+                        self.telemetry.rect.x = self.pfd_width
             
             # 2. State Snapshot (Thread Safety)
             current_state = self.state.get_snapshot()
             
-            # 3. Clear Screen
+            # 3. Record snapshot to telemetry database (even if panel is hidden)
+            self.telemetry.record_state(current_state)
+            
+            # 4. Clear Screen
             self.screen.fill(Colors.BLACK)
             
-            # 4. Update & Draw Instruments
+            # 5. Update & Draw Instruments
             for instrument in self.instruments:
                 instrument.update(current_state)
                 instrument.draw(self.screen)
             
-            # 5. Draw Glass Vignette (Optional)
+            # 6. Draw Glass Vignette (Optional, over PFD only)
             if self.show_vignette:
                 self.screen.blit(self.vignette_surf, (0, 0))
                 
-            # 6. Draw Metal Bezel
+            # 7. Draw Metal Bezel (over PFD only)
             self.screen.blit(self.bezel_surf, (0, 0))
                 
-            # 7. Debug Overlay
+            # 8. Debug Overlay
             self._draw_debug_overlay(current_state)
 
-            # 8. Flip & Tick
+            # 9. Draw Telemetry Dashboard (if enabled)
+            if self.show_telemetry:
+                self.telemetry.draw(self.screen)
+
+            # 10. Flip & Tick
             pygame.display.flip()
             self.clock.tick(60)
             
+        # Export CSV data at the end of the session
+        self.telemetry.export_csv()
         pygame.quit()
         return False
+
