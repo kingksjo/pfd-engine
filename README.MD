@@ -32,15 +32,26 @@ A high-performance, multithreaded Primary Flight Display (PFD) engine built with
 
 ## Running the Engine
 
-You can run the engine in three modes:
+You can run the engine using either the **A320 Ground Station GUI** (`pfd_gui.py` built with PyQt5) or the **Pygame Six-Pack Display** (`main.py`). Both support all three operational modes:
 
-### 1. Simulation Mode (Default)
+### A320 Ground Station GUI (`pfd_gui.py` — Recommended)
+Features a complete Airbus A320 PFD alongside an interactive side panel for configuring FCU targets (Speed, Altitude, Heading), QNH baro settings, and aircraft state (Weight, Flaps, Gear).
+```bash
+python pfd_gui.py --mode demo    # Run simulated A320 flight sector
+python pfd_gui.py --mode serial  # Connect over USB serial
+python pfd_gui.py --mode udp     # Connect over Wi-Fi UDP
+```
+
+### Pygame Six-Pack Display (`main.py`)
+Runs the classic 60 FPS capped Pygame rendering loop with VSpeed bands and attitude watchdogs.
+
+#### 1. Simulation Mode (Default)
 Runs a local physics simulation using smooth sine waves for attitude and altitude (useful for testing without hardware).
 ```bash
 python main.py
 ```
 
-### 2. Live Serial Mode (USB Cable)
+#### 2. Live Serial Mode (USB Cable)
 Connects directly to your dual-core ESP32 board over a USB cable.
 ```bash
 python main.py --port COM5
@@ -48,13 +59,18 @@ python main.py --port COM5
 *   **--port**: Serial/USB port (e.g. `COM5` on Windows, `/dev/ttyUSB0` or `/dev/tty.usbserial-xxx` on Unix).
 *   **--baud**: Serial baud rate. Must match `SERIAL_BAUD` in the firmware (defaults to `921600`).
 
-### 3. Live Wi-Fi Mode (Over-the-Air UDP)
+#### 3. Live Wi-Fi Mode (Over-the-Air UDP)
 Listens for wireless UDP telemetry packets sent by the ESP32 over your local network.
 ```bash
 python main.py --wifi 5005
 ```
-*   **--wifi**: Sets up a local UDP server listening on the specified port (defaults to `5005` if passed empty like `python main.py --wifi`).
-*   **Setup Tip:** On startup, the console prints the active Local IP address of your computer. In `AbleTechPFDProject.ino`, enable Wi-Fi mode by setting `#define COMM_MODE COMM_WIFI` and configure `UDP_HOST` to your computer's IP address. Ensure both devices are on the same local network footprint.
+*   **--wifi**: Sets up a local UDP server listening on the specified port (defaults to `5005`).
+*   **Firmware Configuration:** In `AbleTechPFDProject.ino`, set `#define COMM_MODE COMM_WIFI` and configure `UDP_HOST` to your PC's IP address (`192.168.137.1` when using Windows Mobile Hotspot, or your local LAN IP). Ensure both devices are on the same 2.4 GHz network.
+*   **Alias IP Quick-Fix:** If the ESP32 firmware was pre-flashed with a hardcoded destination IP (such as `192.168.1.100`) while connected to your PC's Mobile Hotspot (`192.168.137.1`), you can add that IP as a secondary address on your PC without re-flashing the board:
+    ```powershell
+    # Run in Administrator PowerShell (replace 'Local Area Connection* 2' with your Hotspot adapter name)
+    netsh interface ipv4 add address "Local Area Connection* 2" 192.168.1.100 255.255.255.0
+    ```
 
 ### Controls & Key Bindings
 

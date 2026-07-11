@@ -38,10 +38,12 @@ The system activates `HardwareSensor` inside [game_io/hardware_sensor.py](../gam
 $PFD,IAS_kts,TAS_kts,Mach,alt_ft,VSI_fpm,roll_deg,pitch_deg,hdg_deg,OAT_C,QNH_hPa,pres_hPa,ts_ms\n
 ```
 
-### 2. Wi-Fi (UDP) Protocol (`--wifi [port]`)
+### 2. Wi-Fi (UDP) Protocol (`--wifi [port]` or `pfd_gui.py --mode udp`)
 By changing `#define COMM_MODE COMM_WIFI` in `AbleTechPFDProject.ino`, the ESP32 acts as a wireless client communicating over a local network.
-*   **Packet Stream:** The ESP32 targets the Python client's machine IP (`UDP_HOST`) and specified port (`UDP_PORT`, default `5005`) pushing raw ASCII-CSV packets with the same `$PFD` schema over the air.
-*   **Sensor Interface:** The python backend activates `WifiSensor` inside [game_io/wifi_sensor.py](../game_io/wifi_sensor.py) binding a standard UDP socket to `0.0.0.0` at the selected port to grab these incoming datagrams.
+*   **Packet Stream:** The ESP32 targets the Python client's machine IP (`UDP_HOST`) and specified port (`UDP_PORT`, default `5005`) pushing raw ASCII-CSV packets with the same `$PFD` schema over the air at 50 Hz.
+*   **Sensor Interface (Pygame):** The python backend activates `WifiSensor` inside [game_io/wifi_sensor.py](../game_io/wifi_sensor.py) binding a standard UDP socket to `0.0.0.0` at the selected port to grab these incoming datagrams.
+*   **Sensor Interface (PyQt5 GUI):** `pfd_gui.py` activates `UDPReader` which binds to `0.0.0.0:5005`, maintaining latest-sample-wins semantics via `DataBus` (`DataBus.push()`) to ensure tear-free 60 FPS repaints.
+*   **Network Topology & Routing Notes:** When connecting over a **Windows Mobile Hotspot**, Windows assigns the Hotspot adapter (`Microsoft Wi-Fi Direct Virtual Adapter`) a default gateway IP of `192.168.137.1`. The firmware's `UDP_HOST` must point to `192.168.137.1` (or the PC's LAN IP). If the ESP32 is pre-flashed with an alternate subnet IP (such as `192.168.1.100`), Windows will discard incoming UDP packets at the socket layer because the destination header does not match any local adapter IP. To resolve this without re-flashing the hardware, `192.168.1.100` can be assigned as a secondary alias IP on the Hotspot adapter using `netsh interface ipv4 add address "Adapter Name" 192.168.1.100 255.255.255.0`.
 
 ### Telemetry Mapping to GUI state:
 | Telemetry Field Index | Value Name | FlightState Map Target | Range / Unit |
