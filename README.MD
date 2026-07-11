@@ -76,16 +76,19 @@ python main.py --wifi 5005
 
 | Key | Action |
 | :--- | :--- |
-| **ESC** | Graceful Shutdown (Stops all threads safely) |
+| **ESC** | Graceful Shutdown (Stops all threads/subprocesses safely & exports CSV) |
 | **G** | Toggle "Glass Vignette" overlay (On/Off) |
+| **T** | Toggle secondary "Flight Telemetry Dashboard" window (On/Off) |
 
 ## Project Structure
 
 *   `main.py`: Entry point. Starts the Data Thread and Render Thread.
 *   `core/`: Shared state (`FlightState`), constants, and logic.
 *   `ui/`: Pygame rendering engine and instrument classes.
+*   `ui/telemetry.py`: Telemetry dashboard implementation (charts, grids, CSV export).
 *   `ui/instruments/`: Individual gauge implementations (Horizon, Tape, Compass).
 *   `game_io/`: Hardware abstraction layer (Mock Sensor vs. Real Sensor).
+*   `telemetry_logs/`: Automatically generated folder containing exported session logs in CSV format.
 *   `docs/`: Detailed technical documentation.
 
 ## Extending the Engine

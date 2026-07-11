@@ -22,11 +22,32 @@ Located in `main.py` -> `sensor_loop`.
     *   **Wi-Fi UDP Mode (`--wifi [port]`):** Activates a local UDP socket bound to port `5005` (default) to subscribe to incoming wireless broadcast datagrams from the ESP32 chip over the local network.
 *   **Timing:** Uses `stop_event.wait(timeout)` for deterministic timing and instant shutdown responsiveness.
 
-### 3. The Render Thread (Consumer)
+#### 3. The Render Thread (Consumer)
 Located in `ui/renderer.py`.
 *   **Frequency:** Runs at **60Hz** (VSync locked).
-*   **Responsibility:** Reads the state snapshot and orchestrates the drawing of all instruments.
-*   **Window Management:** Handles resizing, fullscreen toggles, and input events (like the 'G' key for glass overlay).
+*   **Responsibility:** Reads the state snapshot and orchestrates the drawing of all PFD instruments.
+*   **Window Management:** Handles resizing, fullscreen toggles, and input events (like the 'G' key for glass vignette).
+*   **Process Management:** Manages spawning and stopping of the secondary telemetry subprocess and streams data to it.
+
+### 4. Telemetry Dashboard (Subprocess)
+Located in `ui/renderer.py` -> `run_telemetry_window` and `ui/telemetry.py`.
+*   **Multiprocessing Decoupling:** Spawns in a completely separate native OS process/window using Python's `multiprocessing` library. This isolates the PFD rendering loop, keeping it locked at a stutter-free 60 FPS.
+*   **Window & Graphics:** Initializes its own Pygame SDL display mode in a separate `400x700` window. Renders 3 real-time rolling charts:
+    *   *Attitude Dynamics:* Graphing Pitch (sky blue) and Roll (yellow).
+    *   *Altitude & Vertical Speed:* Dual-axis chart displaying Altitude (green) and VSI rate (white) on separate vertical scales.
+    *   *Airspeed:* Graphing Indicated Airspeed (cyan).
+*   **Data Transport:** Receives flight state dictionaries from the main process through a `multiprocessing.Queue` to avoid pickling locks.
+
+## Telemetry Logging & CSV Export
+
+*   **Background Recording:** The main PFD process continuously records every flight state snapshot to a memory list, regardless of whether the telemetry panel is toggled open or closed.
+*   **Export Trigger:** When the PFD window is closed or the **ESC** key is pressed, the telemetry system exports all logged flight samples.
+*   **File Output:** Files are written to the `telemetry_logs/` folder using a local date-time name format: `telemetry_YYYYMMDD_HHMMSS.csv`.
+*   **Data Fields:** The exported file records:
+    *   `Timestamp_Unix`: Standard Unix epoch time.
+    *   `Timestamp_Relative_Sec`: Elapsed time from session start.
+    *   `Pitch_Deg`, `Roll_Deg`, `Heading_Deg`: Angular attitude.
+    *   `Altitude_Ft`, `Airspeed_Kts`, `Vertical_Speed_Fpm`, `Slip`: Standard aviation flight values.
 
 ## Hardware Integration & Telemetry Protocols
 
@@ -85,10 +106,18 @@ graph TD
     WS -->|Telemetry dict| DT
     MS -->|Simulated dict| DT
     DT -->|Atomic Update| C{FlightState (SSOT)}
-    D[Render Thread (60Hz)] -->|Request Snapshot| C
-    C -->|Thread-Safe Copy| D
-    D -->|Draw| E[Artificial Horizon]
-    D -->|Draw| F[Airspeed Tape]
-    D -->|Draw| G[Altitude Tape]
-    D -->|Draw| H[Compass]
+    
+    subgraph Main PFD Process
+        D[Render Thread - 60Hz] -->|Request Snapshot| C
+        C -->|Thread-Safe Copy| D
+        D -->|Draw| PFD[PFD Instruments]
+        D -->|Record State| DB[(Main Telemetry Log)]
+        DB -->|Export on Close| CSV[telemetry_logs/*.csv]
+    end
+    
+    subgraph Telemetry Process (Secondary Window)
+        D -->|Push Dictionary| Q[multiprocessing.Queue]
+        Q -->|Get Update| TS[Telemetry Window Thread]
+        TS -->|Render| TC[Charts & Live Grid]
+    end
 ```
